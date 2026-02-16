@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +13,12 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_alg: str = "HS256"
     access_token_expire_minutes: int = 60
+
+    refresh_token_days: int = 14
+    refresh_cookie_name: str = "refresh_token"
+    refresh_cookie_path: str = "/auth/refresh"
+    refresh_cookie_secure: bool = False
+    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     postgres_host: str
     postgres_port: int = 5432

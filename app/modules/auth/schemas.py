@@ -29,11 +29,11 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     """
-        Schema for token response.
+    Schema for token response.
 
-        Attributes:
-            access_token (str): The JWT access token.
-            token_type (str): The type of the token, typically "bearer".
+    Attributes:
+        access_token (str): The JWT access token.
+        token_type (str): The type of the token, typically "bearer".
     """
     access_token: str
     token_type: str = "bearer"

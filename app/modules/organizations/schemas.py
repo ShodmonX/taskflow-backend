@@ -11,3 +11,17 @@ class OrgResponse(BaseModel):
 
 class OrgListResponse(BaseModel):
     items: list[OrgResponse]
+
+class MemberAddRequest(BaseModel):
+    user_id: UUID
+    role: str = "MEMBER"
+
+class MemberResponse(BaseModel):
+    user_id: UUID
+    role: str
+
+class MemberListResponse(BaseModel):
+    items: list[MemberResponse]
+
+class MemberRoleUpdateRequest(BaseModel):
+    role: str

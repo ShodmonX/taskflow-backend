@@ -38,8 +38,8 @@ class OrgMember(Base):
     __tablename__ = "org_members"
     __table_args__ = (
         UniqueConstraint("org_id", "user_id", name="uq_org_user"), 
-        Index("idx_org_user", "org_id"),
-        Index("idx_user_id", "user_id")
+        Index("ix_org_user", "org_id"),
+        Index("ix_user_id", "user_id")
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -8,6 +8,8 @@ from app.modules.organizations.models import Organization, OrgMember
 from app.modules.organizations.repository import OrganizationRepository
 
 
+ALLOWED_ROLES = {r.value for r in OrgRole}
+
 class OrganizationService:
     def __init__(self, repo: OrganizationRepository | None = None) -> None:
         self.repo = repo or OrganizationRepository()
@@ -32,3 +34,39 @@ class OrganizationService:
         if m.role not in allowed:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return m
+
+    async def list_members(self, db: AsyncSession, org_id: uuid.UUID, requester_id: uuid.UUID) -> list[OrgMember]:
+        await self.require_role(db, org_id, requester_id, allowed={OrgRole.OWNER.value, OrgRole.ADMIN.value, OrgRole.MEMBER.value})
+        return await self.repo.list_members(db, org_id)
+
+    async def add_member(self, db: AsyncSession, org_id: uuid.UUID, requester_id: uuid.UUID, user_id: uuid.UUID, role: str) -> None:
+        await self.require_role(db, org_id, requester_id, allowed={OrgRole.OWNER.value, OrgRole.ADMIN.value})
+
+        if role not in ALLOWED_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        existing = await self.repo.get_member(db, org_id, user_id)
+        if existing:
+            raise HTTPException(status_code=409, detail="User already a member")
+
+        await self.repo.add_member(db, OrgMember(org_id=org_id, user_id=user_id, role=role))
+        await db.commit()
+
+    async def change_role(self, db: AsyncSession, org_id: uuid.UUID, requester_id: uuid.UUID, user_id: uuid.UUID, role: str) -> None:
+        await self.require_role(db, org_id, requester_id, allowed={OrgRole.OWNER.value})
+
+        if role not in ALLOWED_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        updated = await self.repo.update_role(db, org_id, user_id, role)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Member not found")
+        await db.commit()
+
+    async def remove_member(self, db: AsyncSession, org_id: uuid.UUID, requester_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        await self.require_role(db, org_id, requester_id, allowed={OrgRole.OWNER.value, OrgRole.ADMIN.value})
+
+        removed = await self.repo.remove_member(db, org_id, user_id)
+        if not removed:
+            raise HTTPException(status_code=404, detail="Member not found")
+        await db.commit()

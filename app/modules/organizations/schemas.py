@@ -25,3 +25,16 @@ class MemberListResponse(BaseModel):
 
 class MemberRoleUpdateRequest(BaseModel):
     role: str
+
+class InviteCreateRequest(BaseModel):
+    role: str = "MEMBER"
+    ttl_seconds: int | None = Field(default=None, ge=60, le=60 * 60 * 24 * 7)
+
+class InviteCreateResponse(BaseModel):
+    invite_token: str
+    org_id: UUID
+    role: str
+    expires_in: int
+
+class JoinByInviteRequest(BaseModel):
+    invite_token: str

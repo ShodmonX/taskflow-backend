@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.organizations.enums import OrgRole
 from app.modules.organizations.service import OrganizationService
+from app.modules.organizations.repository import OrganizationRepository
 from app.modules.projects.repository import ProjectRepository
 from app.modules.tasks.models import Task
 from app.modules.tasks.repository import TaskRepository
@@ -20,6 +21,7 @@ class TaskService:
         self.repo = repo or TaskRepository()
         self.org_service = org_service or OrganizationService()
         self.project_repo = project_repo or ProjectRepository()
+        self.org_repo = OrganizationRepository()
 
     async def create_task(
         self,
@@ -81,3 +83,55 @@ class TaskService:
                 raise HTTPException(status_code=404, detail="Project not found in this organization")
 
         return await self.repo.list(db, org_id=org_id, project_id=project_id, status=status, limit=limit, offset=offset)
+    
+    async def update_task(
+        self,
+        db: AsyncSession,
+        *,
+        task_id: uuid.UUID,
+        requester_id: uuid.UUID,
+        data: dict,
+    ) -> Task:
+        task = await self.repo.get(db, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        requester_member = await self.org_repo.get_member(db, task.org_id, requester_id)
+        if not requester_member:
+            raise HTTPException(status_code=403, detail="Not a member of this organization")
+
+        is_admin = requester_member.role in {OrgRole.OWNER.value, OrgRole.ADMIN.value}
+        is_assignee = task.assigned_to == requester_id
+
+        if "status" in data:
+            status = data["status"]
+            if status is not None and status not in ALLOWED_STATUSES:
+                raise HTTPException(status_code=400, detail="Invalid status")
+            if not (is_admin or is_assignee):
+                raise HTTPException(status_code=403, detail="Only assignee or admin can change status")
+
+        if "assigned_to" in data:
+            if not is_admin:
+                raise HTTPException(status_code=403, detail="Only admin can assign tasks")
+
+            assignee = data["assigned_to"]
+            if assignee is not None:
+                if not await self.org_repo.get_member(db, task.org_id, assignee):
+                    raise HTTPException(status_code=400, detail="Assignee is not a member of this organization")
+
+        updated = await self.repo.update_task(db, task_id, data)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Task not found")
+        await db.commit()
+        return updated
+    
+    async def get_task(self, db: AsyncSession, task_id: uuid.UUID, requester_id: uuid.UUID) -> Task:
+        task = await self.repo.get(db, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        requester_member = await self.org_repo.get_member(db, task.org_id, requester_id)
+        if not requester_member:
+            raise HTTPException(status_code=403, detail="Not a member of this organization")
+
+        return task

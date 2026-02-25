@@ -16,9 +16,16 @@ class TaskResponse(BaseModel):
     description: str | None
     status: str
     created_by: UUID | None
+    assigned_to: UUID | None = None
 
 class TaskListResponse(BaseModel):
     items: list[TaskResponse]
     limit: int
     offset: int
     total: int
+
+class TaskUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    status: str | None = None
+    assigned_to: UUID | None = None

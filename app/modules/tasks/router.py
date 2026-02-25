@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
 from app.modules.auth.deps import get_current_user
-from app.modules.tasks.schemas import TaskCreateRequest, TaskListResponse, TaskResponse
+from app.modules.tasks.schemas import TaskCreateRequest, TaskListResponse, TaskResponse, TaskUpdateRequest
 from app.modules.tasks.service import TaskService
 from app.modules.users.models import User
 
@@ -62,4 +62,33 @@ async def list_tasks(
         limit=limit,
         offset=offset,
         total=total,
+    )
+
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(
+    task_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> TaskResponse:
+    t = await service.get_task(db, task_id=task_id, requester_id=user.id)  # add in service
+    return TaskResponse(
+        id=t.id, org_id=t.org_id, project_id=t.project_id,
+        title=t.title, description=t.description, status=t.status,
+        created_by=t.created_by, assigned_to=t.assigned_to
+    )
+
+@router.patch("/tasks/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: UUID,
+    payload: TaskUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> TaskResponse:
+    data = payload.model_dump(exclude_unset=True)
+
+    t = await service.update_task(db, task_id=task_id, requester_id=user.id, data=data)
+    return TaskResponse(
+        id=t.id, org_id=t.org_id, project_id=t.project_id,
+        title=t.title, description=t.description, status=t.status,
+        created_by=t.created_by, assigned_to=t.assigned_to
     )

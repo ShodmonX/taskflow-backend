@@ -34,3 +34,22 @@ class TaskRepository:
         stmt = stmt.order_by(Task.created_at.desc()).limit(limit).offset(offset)
         rows = await db.execute(stmt)
         return list(rows.scalars().all()), total
+    
+    async def get(self, db: AsyncSession, task_id: uuid.UUID) -> Task | None:
+        stmt = select(Task).where(Task.id == task_id)
+        rows = await db.execute(stmt)
+        return rows.scalar_one_or_none()
+    
+    async def update_task(self, db: AsyncSession, task_id: uuid.UUID, data: dict) -> Task | None:
+        stmt = select(Task).where(Task.id == task_id)
+        rows = await db.execute(stmt)
+        task = rows.scalar_one_or_none()
+        if not task:
+            return None
+
+        for key, value in data.items():
+            setattr(task, key, value)
+
+        db.add(task)
+        await db.flush()
+        return task

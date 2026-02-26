@@ -24,6 +24,13 @@ class ProjectRepository:
         res = await db.execute(select(Project).where(Project.id == project_id))
         return res.scalar_one_or_none()
 
+    async def update(self, db: AsyncSession, project: Project, data: dict) -> Project:
+        for key, value in data.items():
+            setattr(project, key, value)
+        db.add(project)
+        await db.flush()
+        return project
+
     async def delete(self, db: AsyncSession, project_id: uuid.UUID) -> int:
         res = cast(
             CursorResult[Any],

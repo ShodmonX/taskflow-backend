@@ -20,6 +20,14 @@ def _rt_key(token_hash: str) -> str:
     return f"rt:{token_hash}"
 
 
+def _email_verify_key(token_hash: str) -> str:
+    return f"email_verify:{token_hash}"
+
+
+def _pwd_reset_key(token_hash: str) -> str:
+    return f"pwd_reset:{token_hash}"
+
+
 class AuthService:
     """
     AuthService provides authentication-related operations such as user registration, login, and token/session management.
@@ -212,3 +220,83 @@ class AuthService:
             str: A newly generated access token for the user.
         """
         return create_access_token(subject=user_id)
+
+    async def request_email_verification(self, db: AsyncSession, user_id: uuid.UUID) -> str | None:
+        user = await self.user_repo.get_by_id(db, user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if user.is_verified:
+            return None
+
+        raw = generate_refresh_token()
+        h = hash_refresh_token(raw)
+        payload = {
+            "uid": str(user.id),
+            "created_at": int(datetime.now(timezone.utc).timestamp()),
+        }
+        await redis_set_json(
+            _email_verify_key(h),
+            payload,
+            ttl_seconds=settings.email_verification_token_ttl_seconds,
+        )
+        return raw
+
+    async def verify_email(self, db: AsyncSession, raw_token: str) -> None:
+        token_hash = hash_refresh_token(raw_token)
+        key = _email_verify_key(token_hash)
+        data = await redis_get_json(key)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token is invalid or expired",
+            )
+
+        user = await self.user_repo.get_by_id(db, uuid.UUID(data["uid"]))
+        if not user:
+            await redis_del(key)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token user")
+
+        if not user.is_verified:
+            user.is_verified = True
+            await self.user_repo.save(db, user)
+            await db.commit()
+
+        await redis_del(key)
+
+    async def request_password_reset(self, db: AsyncSession, email: str) -> str | None:
+        user = await self.user_repo.get_by_email(db, email)
+        if not user:
+            return None
+
+        raw = generate_refresh_token()
+        h = hash_refresh_token(raw)
+        payload = {
+            "uid": str(user.id),
+            "created_at": int(datetime.now(timezone.utc).timestamp()),
+        }
+        await redis_set_json(
+            _pwd_reset_key(h),
+            payload,
+            ttl_seconds=settings.password_reset_token_ttl_seconds,
+        )
+        return raw
+
+    async def reset_password(self, db: AsyncSession, raw_token: str, new_password: str) -> None:
+        token_hash = hash_refresh_token(raw_token)
+        key = _pwd_reset_key(token_hash)
+        data = await redis_get_json(key)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password reset token is invalid or expired",
+            )
+
+        user = await self.user_repo.get_by_id(db, uuid.UUID(data["uid"]))
+        if not user:
+            await redis_del(key)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token user")
+
+        user.hashed_password = hash_password(new_password)
+        await self.user_repo.save(db, user)
+        await db.commit()
+        await redis_del(key)

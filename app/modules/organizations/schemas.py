@@ -4,6 +4,11 @@ from uuid import UUID
 class OrgCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=120)
 
+
+class OrgUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+
+
 class OrgResponse(BaseModel):
     id: UUID
     name: str
@@ -32,9 +37,26 @@ class InviteCreateRequest(BaseModel):
 
 class InviteCreateResponse(BaseModel):
     invite_token: str
+    invite_id: str
     org_id: UUID
     role: str
     expires_in: int
 
 class JoinByInviteRequest(BaseModel):
     invite_token: str
+
+
+class InviteSummaryResponse(BaseModel):
+    invite_id: str
+    role: str
+    created_by: UUID
+    created_at: int
+    expires_in: int
+
+
+class InviteListResponse(BaseModel):
+    items: list[InviteSummaryResponse]
+
+
+class OwnershipTransferRequest(BaseModel):
+    new_owner_user_id: UUID

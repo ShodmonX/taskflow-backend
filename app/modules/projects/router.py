@@ -4,7 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
 from app.modules.auth.deps import get_current_user
-from app.modules.projects.schemas import ProjectCreateRequest, ProjectListResponse, ProjectResponse
+from app.modules.projects.schemas import (
+    ProjectCreateRequest,
+    ProjectListResponse,
+    ProjectResponse,
+    ProjectUpdateRequest,
+)
 from app.modules.projects.service import ProjectService
 from app.modules.users.models import User
 
@@ -49,3 +54,25 @@ async def delete_project(
 ) -> dict:
     await service.delete_project(db, project_id=project_id, requester_id=user.id)
     return {"status": "ok"}
+
+
+@router.get("/projects/{project_id}", response_model=ProjectResponse)
+async def get_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ProjectResponse:
+    p = await service.get_project(db, project_id=project_id, requester_id=user.id)
+    return ProjectResponse(id=p.id, org_id=p.org_id, name=p.name, description=p.description, created_by=p.created_by)
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    project_id: UUID,
+    payload: ProjectUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> ProjectResponse:
+    data = payload.model_dump(exclude_unset=True)
+    p = await service.update_project(db, project_id=project_id, requester_id=user.id, data=data)
+    return ProjectResponse(id=p.id, org_id=p.org_id, name=p.name, description=p.description, created_by=p.created_by)

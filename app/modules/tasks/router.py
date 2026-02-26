@@ -31,7 +31,8 @@ async def create_task(
     )
     return TaskResponse(
         id=t.id, org_id=t.org_id, project_id=t.project_id,
-        title=t.title, description=t.description, status=t.status, created_by=t.created_by
+        title=t.title, description=t.description, status=t.status,
+        created_by=t.created_by, assigned_to=t.assigned_to
     )
 
 
@@ -57,7 +58,8 @@ async def list_tasks(
     return TaskListResponse(
         items=[TaskResponse(
             id=t.id, org_id=t.org_id, project_id=t.project_id,
-            title=t.title, description=t.description, status=t.status, created_by=t.created_by
+            title=t.title, description=t.description, status=t.status,
+            created_by=t.created_by, assigned_to=t.assigned_to
         ) for t in items],
         limit=limit,
         offset=offset,
@@ -92,3 +94,13 @@ async def update_task(
         title=t.title, description=t.description, status=t.status,
         created_by=t.created_by, assigned_to=t.assigned_to
     )
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(
+    task_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    await service.delete_task(db, task_id=task_id, requester_id=user.id)
+    return {"status": "ok"}

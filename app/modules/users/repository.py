@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +45,15 @@ class UserRepository:
         Returns:
             User: The User instance that was added to the session.
         """
+        db.add(user)
+        await db.flush()
+        return user
+
+    async def get_by_id(self, db: AsyncSession, user_id: uuid.UUID) -> User | None:
+        res = await db.execute(select(User).where(User.id == user_id))
+        return res.scalar_one_or_none()
+
+    async def save(self, db: AsyncSession, user: User) -> User:
         db.add(user)
         await db.flush()
         return user

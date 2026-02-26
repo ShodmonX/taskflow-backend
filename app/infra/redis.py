@@ -49,3 +49,27 @@ async def redis_del(key: str) -> int:
     """
     delete_resp = await redis_client.delete(key)
     return int(delete_resp)
+
+
+async def redis_set_add(key: str, *values: str) -> int:
+    if not values:
+        return 0
+    added = await redis_client.sadd(key, *values)
+    return int(added)
+
+
+async def redis_set_remove(key: str, *values: str) -> int:
+    if not values:
+        return 0
+    removed = await redis_client.srem(key, *values)
+    return int(removed)
+
+
+async def redis_set_members(key: str) -> set[str]:
+    members = await redis_client.smembers(key)
+    return set(members)
+
+
+async def redis_ttl_seconds(key: str) -> int:
+    ttl = await redis_client.ttl(key)
+    return int(ttl)

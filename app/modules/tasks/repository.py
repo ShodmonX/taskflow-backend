@@ -1,5 +1,8 @@
 import uuid
-from sqlalchemy import func, select
+from typing import Any, cast
+
+from sqlalchemy import delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.tasks.models import Task
@@ -53,3 +56,10 @@ class TaskRepository:
         db.add(task)
         await db.flush()
         return task
+
+    async def delete(self, db: AsyncSession, task_id: uuid.UUID) -> int:
+        res = cast(
+            CursorResult[Any],
+            await db.execute(delete(Task).where(Task.id == task_id)),
+        )
+        return res.rowcount or 0

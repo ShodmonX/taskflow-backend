@@ -4,7 +4,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import get_db_session
 from app.modules.users.models import User
-from app.modules.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, MeResponse
+from app.modules.auth.schemas import (
+    AuthActionResponse,
+    EmailVerificationConfirmRequest,
+    LoginRequest,
+    MeResponse,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.modules.auth.service import AuthService
 from app.modules.auth.deps import get_current_user
 
@@ -78,3 +87,39 @@ async def me(current_user: User = Depends(get_current_user)) -> MeResponse:
         is_verified=current_user.is_verified,
         is_superuser=current_user.is_superuser,
     )
+
+
+@router.post("/verify-email/request", response_model=AuthActionResponse)
+async def request_email_verification(
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> AuthActionResponse:
+    token = await service.request_email_verification(db, current_user.id)
+    return AuthActionResponse(status="ok", token=token if settings.debug else None)
+
+
+@router.post("/verify-email/confirm", response_model=AuthActionResponse)
+async def confirm_email_verification(
+    payload: EmailVerificationConfirmRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthActionResponse:
+    await service.verify_email(db, payload.token)
+    return AuthActionResponse(status="ok")
+
+
+@router.post("/password-reset/request", response_model=AuthActionResponse)
+async def request_password_reset(
+    payload: PasswordResetRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthActionResponse:
+    token = await service.request_password_reset(db, payload.email)
+    return AuthActionResponse(status="ok", token=token if settings.debug else None)
+
+
+@router.post("/password-reset/confirm", response_model=AuthActionResponse)
+async def confirm_password_reset(
+    payload: PasswordResetConfirmRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthActionResponse:
+    await service.reset_password(db, payload.token, payload.new_password)
+    return AuthActionResponse(status="ok")

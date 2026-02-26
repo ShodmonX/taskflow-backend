@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     rabbitmq_host: str
     rabbitmq_port: int = 5672
     invite_token_ttl_seconds: int = 60 * 60 * 24
+    email_verification_token_ttl_seconds: int = 60 * 60 * 24
+    password_reset_token_ttl_seconds: int = 60 * 60
 
     @property
     def database_url(self) -> str:

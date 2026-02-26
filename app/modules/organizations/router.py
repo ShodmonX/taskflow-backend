@@ -7,8 +7,9 @@ from app.db.session import get_db_session
 from app.modules.auth.deps import get_current_user
 from app.modules.organizations.schemas import (
     MemberAddRequest, MemberListResponse, MemberResponse, MemberRoleUpdateRequest,
-    OrgCreateRequest, OrgListResponse, OrgResponse,
-    InviteCreateRequest, InviteCreateResponse, JoinByInviteRequest,
+    OrgCreateRequest, OrgListResponse, OrgResponse, OrgUpdateRequest,
+    InviteCreateRequest, InviteCreateResponse, InviteListResponse,
+    JoinByInviteRequest, OwnershipTransferRequest,
 )
 from app.modules.organizations.service import OrganizationService
 from app.modules.users.models import User
@@ -25,6 +26,33 @@ async def create_org(
 ) -> OrgResponse:
     org = await service.create_organization(db, name=payload.name, creator_id=user.id)
     return OrgResponse(id=org.id, name=org.name, created_by=org.created_by)
+
+
+@router.patch("/{org_id}", response_model=OrgResponse)
+async def update_org(
+    org_id: UUID,
+    payload: OrgUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> OrgResponse:
+    data = payload.model_dump(exclude_unset=True)
+    org = await service.update_organization(
+        db,
+        org_id=org_id,
+        requester_id=user.id,
+        data=data,
+    )
+    return OrgResponse(id=org.id, name=org.name, created_by=org.created_by)
+
+
+@router.delete("/{org_id}")
+async def delete_org(
+    org_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    await service.delete_organization(db, org_id=org_id, requester_id=user.id)
+    return {"status": "ok"}
 
 
 @router.get("", response_model=OrgListResponse)
@@ -62,8 +90,46 @@ async def create_invite(
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ) -> InviteCreateResponse:
-    token, ttl = await service.create_invite(db, org_id, user.id, payload.role, payload.ttl_seconds)
-    return InviteCreateResponse(invite_token=token, org_id=org_id, role=payload.role, expires_in=ttl)
+    token, ttl, invite_id = await service.create_invite(db, org_id, user.id, payload.role, payload.ttl_seconds)
+    return InviteCreateResponse(
+        invite_token=token,
+        invite_id=invite_id,
+        org_id=org_id,
+        role=payload.role,
+        expires_in=ttl,
+    )
+
+
+@router.get("/{org_id}/invites", response_model=InviteListResponse)
+async def list_invites(
+    org_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> InviteListResponse:
+    items = await service.list_invites(db, org_id, user.id)
+    return InviteListResponse(items=items)
+
+
+@router.delete("/{org_id}/invites/{invite_id}")
+async def revoke_invite(
+    org_id: UUID,
+    invite_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    await service.revoke_invite(db, org_id, user.id, invite_id)
+    return {"status": "ok"}
+
+
+@router.post("/{org_id}/ownership/transfer")
+async def transfer_ownership(
+    org_id: UUID,
+    payload: OwnershipTransferRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    await service.transfer_ownership(db, org_id, user.id, payload.new_owner_user_id)
+    return {"status": "ok"}
 
 
 @router.post("/join")

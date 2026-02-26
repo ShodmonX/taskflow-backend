@@ -39,6 +39,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class AuthActionResponse(BaseModel):
+    status: str = "ok"
+    token: str | None = None
+
+
 class MeResponse(BaseModel):
     """
     Schema representing the response for the current authenticated user.
@@ -57,3 +62,16 @@ class MeResponse(BaseModel):
     is_active: bool
     is_verified: bool
     is_superuser: bool
+
+
+class EmailVerificationConfirmRequest(BaseModel):
+    token: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)

@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, cast
 
-from sqlalchemy import select, delete, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,24 @@ class OrganizationRepository:
         res = await db.execute(q)
         return list(res.scalars().all())
 
+    async def get_org(self, db: AsyncSession, org_id: uuid.UUID) -> Organization | None:
+        res = await db.execute(select(Organization).where(Organization.id == org_id))
+        return res.scalar_one_or_none()
+
+    async def update_org(self, db: AsyncSession, org: Organization, data: dict) -> Organization:
+        for key, value in data.items():
+            setattr(org, key, value)
+        db.add(org)
+        await db.flush()
+        return org
+
+    async def delete_org(self, db: AsyncSession, org_id: uuid.UUID) -> int:
+        res = cast(
+            CursorResult[Any],
+            await db.execute(delete(Organization).where(Organization.id == org_id)),
+        )
+        return res.rowcount or 0
+
     async def get_member(self, db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> OrgMember | None:
         res = await db.execute(
             select(OrgMember).where(OrgMember.org_id == org_id, OrgMember.user_id == user_id)
@@ -54,3 +72,9 @@ class OrganizationRepository:
             ),
         )
         return res.rowcount or 0
+
+    async def count_members_by_role(self, db: AsyncSession, org_id: uuid.UUID, role: str) -> int:
+        res = await db.execute(
+            select(func.count()).select_from(OrgMember).where(OrgMember.org_id == org_id, OrgMember.role == role)
+        )
+        return int(res.scalar_one())

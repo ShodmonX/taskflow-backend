@@ -17,3 +17,8 @@ class ProjectResponse(BaseModel):
 
 class ProjectListResponse(BaseModel):
     items: list[ProjectResponse]
+
+
+class ProjectUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=2000)

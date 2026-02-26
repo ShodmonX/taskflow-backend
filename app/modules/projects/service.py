@@ -63,3 +63,39 @@ class ProjectService:
         if not deleted:
             raise HTTPException(status_code=404, detail="Project not found")
         await db.commit()
+
+    async def get_project(self, db: AsyncSession, *, project_id: uuid.UUID, requester_id: uuid.UUID) -> Project:
+        project = await self.repo.get(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        await self.org_service.require_role(
+            db,
+            project.org_id,
+            requester_id,
+            allowed={OrgRole.OWNER.value, OrgRole.ADMIN.value, OrgRole.MEMBER.value},
+        )
+        return project
+
+    async def update_project(
+        self,
+        db: AsyncSession,
+        *,
+        project_id: uuid.UUID,
+        requester_id: uuid.UUID,
+        data: dict,
+    ) -> Project:
+        project = await self.repo.get(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        await self.org_service.require_role(
+            db,
+            project.org_id,
+            requester_id,
+            allowed={OrgRole.OWNER.value, OrgRole.ADMIN.value},
+        )
+
+        updated = await self.repo.update(db, project, data)
+        await db.commit()
+        return updated

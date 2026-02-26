@@ -9,3 +9,7 @@ def hash_invite_token(token: str) -> str:
 
 def invite_key(token_hash: str) -> str:
     return f"org_invite:{token_hash}"
+
+
+def invites_index_key(org_id: str) -> str:
+    return f"org_invites:{org_id}"
